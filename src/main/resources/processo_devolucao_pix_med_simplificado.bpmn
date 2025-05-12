@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_0fdzdve" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.34.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.23.0">
+  <bpmn:process id="processo_devolucao_pix_med_simplificado" name="Processo de Devolução de PIX (MED Simplificado)" isExecutable="true" camunda:historyTimeToLive="P5D">
+    <bpmn:startEvent id="start_event_solicitacao_recebida" name="Solicitação de Devolução Recebida">
+      <bpmn:outgoing>Flow_0h8zp6b</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_0h8zp6b" sourceRef="start_event_solicitacao_recebida" targetRef="service_task_validar_solicitacao" />
+    <bpmn:serviceTask id="service_task_validar_solicitacao" name="Validar Solicitação de Devolução" camunda:class="estudo.camunda.delegates.ValidacaoSolicitacaoDelegate">
+      <bpmn:incoming>Flow_0h8zp6b</bpmn:incoming>
+      <bpmn:outgoing>Flow_0e297ub</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="gateway_validacao_solicitacao" name="Solicitação Válida?">
+      <bpmn:incoming>Flow_0e297ub</bpmn:incoming>
+      <bpmn:outgoing>sequence_end_event_solicitacao_invalida</bpmn:outgoing>
+      <bpmn:outgoing>sequence_continue_event_solicitacao_invalida</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_0e297ub" sourceRef="service_task_validar_solicitacao" targetRef="gateway_validacao_solicitacao" />
+    <bpmn:serviceTask id="service_task_notificar_rejeicao_inicial" name="Notificar Cliente - Solicitação Inválida" camunda:class="estudo.camunda.delegates.NotificacaoClienteDelegate">
+      <bpmn:extensionElements>
+        <camunda:field name="tipoNotificacao">
+          <camunda:string>REJEICAO_INICIAL</camunda:string>
+        </camunda:field>
+      </bpmn:extensionElements>
+      <bpmn:incoming>sequence_end_event_solicitacao_invalida</bpmn:incoming>
+      <bpmn:outgoing>sequence_no</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="sequence_end_event_solicitacao_invalida" name="Não" sourceRef="gateway_validacao_solicitacao" targetRef="service_task_notificar_rejeicao_inicial">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${!solicitacaoValida}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:endEvent id="end_event_solicitacao_invalida" name="Solicitação Inválida e Encerrada">
+      <bpmn:incoming>sequence_no</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="sequence_no" sourceRef="service_task_notificar_rejeicao_inicial" targetRef="end_event_solicitacao_invalida" />
+    <bpmn:serviceTask id="service_task_analisar_risco" name="Analisar Risco da Devolução" camunda:class="estudo.camunda.delegates.AnaliseRiscoDelegate">
+      <bpmn:incoming>sequence_continue_event_solicitacao_invalida</bpmn:incoming>
+      <bpmn:outgoing>Flow_12tk7uk</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="sequence_continue_event_solicitacao_invalida" name="Sim" sourceRef="gateway_validacao_solicitacao" targetRef="service_task_analisar_risco">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${solicitacaoValida}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:exclusiveGateway id="gateway_resultado_analise_risco" name="Nível de Risco?" default="sequece_medium_risk">
+      <bpmn:incoming>Flow_0fr9lfu</bpmn:incoming>
+      <bpmn:outgoing>sequece_low_risk</bpmn:outgoing>
+      <bpmn:outgoing>sequece_medium_risk</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_12tk7uk" sourceRef="service_task_analisar_risco" targetRef="Event_0onr9u5" />
+    <bpmn:sequenceFlow id="sequece_low_risk" name="Risco Baixo (Auto-Aprovar)" sourceRef="gateway_resultado_analise_risco" targetRef="service_task_processar_devolucao_efetiva">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${nivelRisco == 'BAIXO' &amp;&amp; aprovacaoAutomaticaSugerida == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:userTask id="user_task_analise_manual" name="Analisar Devolução Manualmente" camunda:assignee="analista_fraude">
+      <bpmn:incoming>sequece_medium_risk</bpmn:incoming>
+      <bpmn:outgoing>Flow_124rc10</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="gateway_decisao_analista" name="Analista Aprovou?">
+      <bpmn:incoming>Flow_124rc10</bpmn:incoming>
+      <bpmn:outgoing>sequence_accepted</bpmn:outgoing>
+      <bpmn:outgoing>sequence_not_accepted</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_124rc10" sourceRef="user_task_analise_manual" targetRef="gateway_decisao_analista" />
+    <bpmn:serviceTask id="service_task_processar_devolucao_efetiva" name="Processar Devolução Efetiva" camunda:class="estudo.camunda.delegates.ProcessamentoDevolucaoDelegate">
+      <bpmn:incoming>sequence_accepted</bpmn:incoming>
+      <bpmn:incoming>sequece_low_risk</bpmn:incoming>
+      <bpmn:outgoing>Flow_0q8cc14</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="sequence_accepted" name="Sim" sourceRef="gateway_decisao_analista" targetRef="service_task_processar_devolucao_efetiva">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${decisaoAnalista == 'APROVAR'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:serviceTask id="service_task_notificar_rejeicao_analise" name="Notificar Cliente - Devolução Rejeitada Pós-Análise" camunda:class="estudo.camunda.delegates.NotificacaoClienteDelegate">
+      <bpmn:extensionElements>
+        <camunda:field name="tipoNotificacao">
+          <camunda:string>REJEICAO_ANALISE</camunda:string>
+        </camunda:field>
+      </bpmn:extensionElements>
+      <bpmn:incoming>sequence_not_accepted</bpmn:incoming>
+      <bpmn:outgoing>Flow_0kc7u0r</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="sequence_not_accepted" name="Não" sourceRef="gateway_decisao_analista" targetRef="service_task_notificar_rejeicao_analise">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${decisaoAnalista == 'REJEITAR'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:endEvent id="end_event_rejeitada_analise" name="Devolução Rejeitada Pós-Análise">
+      <bpmn:incoming>Flow_0kc7u0r</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_0kc7u0r" sourceRef="service_task_notificar_rejeicao_analise" targetRef="end_event_rejeitada_analise" />
+    <bpmn:serviceTask id="service_task_notificar_sucesso_devolucao" name="Notificar Cliente - Sucesso na Devolução" camunda:class="estudo.camunda.delegates.NotificacaoClienteDelegate">
+      <bpmn:extensionElements>
+        <camunda:field name="tipoNotificacao">
+          <camunda:string>RESULTADO_PROCESSAMENTO</camunda:string>
+        </camunda:field>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0q8cc14</bpmn:incoming>
+      <bpmn:outgoing>Flow_1bzqq2a</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_0q8cc14" sourceRef="service_task_processar_devolucao_efetiva" targetRef="service_task_notificar_sucesso_devolucao" />
+    <bpmn:endEvent id="end_event_devolucao_sucesso" name="Devolução Concluída com Sucesso">
+      <bpmn:incoming>Flow_1bzqq2a</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1bzqq2a" sourceRef="service_task_notificar_sucesso_devolucao" targetRef="end_event_devolucao_sucesso" />
+    <bpmn:sequenceFlow id="sequece_medium_risk" name="Risco Médio/Alto (Análise Manual)" sourceRef="gateway_resultado_analise_risco" targetRef="user_task_analise_manual" />
+    <bpmn:sequenceFlow id="Flow_0fr9lfu" sourceRef="Event_0onr9u5" targetRef="gateway_resultado_analise_risco" />
+    <bpmn:intermediateCatchEvent id="Event_0onr9u5" name="Delay">
+      <bpmn:incoming>Flow_12tk7uk</bpmn:incoming>
+      <bpmn:outgoing>Flow_0fr9lfu</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerEventDefinition_132jiht">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT1M</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:intermediateCatchEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="processo_devolucao_pix_med_simplificado">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="start_event_solicitacao_recebida">
+        <dc:Bounds x="182" y="222" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="166" y="265" width="69" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1ccfi7a_di" bpmnElement="service_task_validar_solicitacao">
+        <dc:Bounds x="350" y="200" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_1nhuk88_di" bpmnElement="gateway_validacao_solicitacao" isMarkerVisible="true">
+        <dc:Bounds x="545" y="215" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="605" y="226" width="54" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_00g8zid_di" bpmnElement="service_task_notificar_rejeicao_inicial">
+        <dc:Bounds x="620" y="80" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1jli954_di" bpmnElement="end_event_solicitacao_invalida">
+        <dc:Bounds x="862" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="853" y="145" width="54" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_02aqaqq_di" bpmnElement="service_task_analisar_risco">
+        <dc:Bounds x="620" y="330" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_1m5xrpl_di" bpmnElement="gateway_resultado_analise_risco" isMarkerVisible="true">
+        <dc:Bounds x="855" y="345" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="841" y="321" width="78" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_142l8cw_di" bpmnElement="user_task_analise_manual">
+        <dc:Bounds x="1040" y="480" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_1fm6nkr_di" bpmnElement="gateway_decisao_analista" isMarkerVisible="true">
+        <dc:Bounds x="1275" y="495" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1335" y="513" width="88" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1cl07f1_di" bpmnElement="service_task_processar_devolucao_efetiva">
+        <dc:Bounds x="1250" y="330" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0l054tq_di" bpmnElement="service_task_notificar_rejeicao_analise">
+        <dc:Bounds x="1460" y="590" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0it3lba_di" bpmnElement="end_event_rejeitada_analise">
+        <dc:Bounds x="1672" y="612" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1654" y="655" width="73" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_13wo10m_di" bpmnElement="service_task_notificar_sucesso_devolucao">
+        <dc:Bounds x="1460" y="330" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_13ujpc1_di" bpmnElement="end_event_devolucao_sucesso">
+        <dc:Bounds x="1672" y="352" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1653" y="395" width="74" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1itf08m_di" bpmnElement="Event_0onr9u5">
+        <dc:Bounds x="772" y="352" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="776" y="395" width="29" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0h8zp6b_di" bpmnElement="Flow_0h8zp6b">
+        <di:waypoint x="218" y="240" />
+        <di:waypoint x="350" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0e297ub_di" bpmnElement="Flow_0e297ub">
+        <di:waypoint x="450" y="240" />
+        <di:waypoint x="545" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1g76ay7_di" bpmnElement="sequence_end_event_solicitacao_invalida">
+        <di:waypoint x="570" y="215" />
+        <di:waypoint x="570" y="120" />
+        <di:waypoint x="620" y="120" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="575" y="165" width="21" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1l7wf0k_di" bpmnElement="sequence_no">
+        <di:waypoint x="720" y="120" />
+        <di:waypoint x="862" y="120" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="782" y="102" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1czx0g5_di" bpmnElement="sequence_continue_event_solicitacao_invalida">
+        <di:waypoint x="570" y="265" />
+        <di:waypoint x="570" y="370" />
+        <di:waypoint x="620" y="370" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="576" y="315" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12tk7uk_di" bpmnElement="Flow_12tk7uk">
+        <di:waypoint x="720" y="370" />
+        <di:waypoint x="772" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1oulr2t_di" bpmnElement="sequece_low_risk">
+        <di:waypoint x="905" y="370" />
+        <di:waypoint x="1250" y="370" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1063" y="336" width="73" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_124rc10_di" bpmnElement="Flow_124rc10">
+        <di:waypoint x="1140" y="520" />
+        <di:waypoint x="1275" y="520" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_03ddg0f_di" bpmnElement="sequence_accepted">
+        <di:waypoint x="1300" y="495" />
+        <di:waypoint x="1300" y="410" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1270" y="445" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1nw0q0d_di" bpmnElement="sequence_not_accepted">
+        <di:waypoint x="1300" y="545" />
+        <di:waypoint x="1300" y="630" />
+        <di:waypoint x="1460" y="630" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1305" y="585" width="21" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0kc7u0r_di" bpmnElement="Flow_0kc7u0r">
+        <di:waypoint x="1560" y="630" />
+        <di:waypoint x="1672" y="630" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0q8cc14_di" bpmnElement="Flow_0q8cc14">
+        <di:waypoint x="1350" y="370" />
+        <di:waypoint x="1460" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1bzqq2a_di" bpmnElement="Flow_1bzqq2a">
+        <di:waypoint x="1560" y="370" />
+        <di:waypoint x="1672" y="370" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0et3k1n_di" bpmnElement="sequece_medium_risk">
+        <di:waypoint x="880" y="395" />
+        <di:waypoint x="880" y="520" />
+        <di:waypoint x="1040" y="520" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="888" y="444" width="84" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0fr9lfu_di" bpmnElement="Flow_0fr9lfu">
+        <di:waypoint x="808" y="370" />
+        <di:waypoint x="855" y="370" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
