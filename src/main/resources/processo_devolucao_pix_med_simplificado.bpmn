@@ -101,7 +101,7 @@
       <bpmn:incoming>Flow_12tk7uk</bpmn:incoming>
       <bpmn:outgoing>Flow_0fr9lfu</bpmn:outgoing>
       <bpmn:timerEventDefinition id="TimerEventDefinition_132jiht">
-        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT1M</bpmn:timeDuration>
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT1S</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:intermediateCatchEvent>
   </bpmn:process>

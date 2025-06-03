@@ -46,9 +46,14 @@ dependencies {
 	testCompileOnly("org.projectlombok:lombok:1.18.38")
 	testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
 
-	// Testes
+ // Testes
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+ // Camunda Testing
+	testImplementation 'org.camunda.bpm.extension:camunda-bpm-junit5:1.1.0'
+	testImplementation 'org.camunda.bpm.assert:camunda-bpm-assert:15.0.0'
+	testImplementation 'org.camunda.bpm.extension.mockito:camunda-bpm-mockito:5.16.0'
 
 }
 

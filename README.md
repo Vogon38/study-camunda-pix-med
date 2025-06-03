@@ -135,14 +135,20 @@ Para verificar as instâncias do processo, ver variáveis etc, acesse o **Camund
 
 ## Testando
 
-*   **Testes de API:** O arquivo `postman_examples.md` é seu melhor amigo aqui!
-*   **Testes Unitários:**
-    Verifique a pasta `src/test/java` para os testes unitários (ex: `DevolucaoPixControllerTest.java`).
+*   **Testes Unitários (Java):**
+    Testam métodos e classes isoladamente, como validações e regras de negócio. Veja exemplos em `src/test/java` (ex: `DevolucaoPixControllerTest.java`).
+
+*   **Testes de API (Integração):**
+    Validam os endpoints REST simulando requisições reais. Exemplos de uso estão em `postman_examples.md` (em `src/test/resources`).
+
+*   **Testes de Processo Camunda (BPMN):**
+    Garantem que o fluxo BPMN está correto e as integrações funcionam. Veja instruções em `tutorial_camunda_test.md` (em `src/test/resources`) e exemplos em `src/test/java` (`CamundaProcessTest.java`, `SimpleCamundaProcessTest.java`).
+
     Execute-os com Gradle:
     ```bash
     ./gradlew test
     ```
-
+    
 ---
 
 *Sinta-se à vontade para contribuir e melhorar este projeto!*
