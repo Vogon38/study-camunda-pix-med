@@ -30,7 +30,7 @@
 
 1.  **Clone este universo:**
     ```bash
-    git clone estudo-camunda-pix-med.git
+    git clone study-camunda-pix-med.git
     ```
 
 2.  **Build com Gradle:**
